@@ -227,6 +227,7 @@ else(ROS_EDITION STREQUAL "ROS2")
   find_package(std_msgs REQUIRED)
   find_package(builtin_interfaces REQUIRED)
   find_package(rosidl_default_generators REQUIRED)
+  find_package(Python3 REQUIRED COMPONENTS Development)
 
   # check apr
   find_package(PkgConfig)
@@ -305,12 +306,27 @@ else(ROS_EDITION STREQUAL "ROS2")
     ${cpp_typesupport_target}
     ${PCL_LIBRARIES}
     ${APR_LIBRARIES}
+    Python3::Python
   )
 
   rclcpp_components_register_node(${PROJECT_NAME}
     PLUGIN "livox_ros::DriverNode"
     EXECUTABLE ${PROJECT_NAME}_node
   )
+
+  # On macOS, the executable needs to link against Python to resolve symbols
+  # from transitive dependencies like *__rosidl_generator_py.dylib
+  if(APPLE)
+    target_link_libraries(${PROJECT_NAME}_node
+      Python3::Python
+    )
+    # Add rpath so the executable can find the component library at runtime
+    # Include both the local install lib and the conda/pixi environment lib
+    set_target_properties(${PROJECT_NAME}_node PROPERTIES
+      INSTALL_RPATH "@loader_path/../lib;${CMAKE_INSTALL_PREFIX}/lib;$ENV{CONDA_PREFIX}/lib"
+      BUILD_WITH_INSTALL_RPATH TRUE
+    )
+  endif()
 
   if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)
